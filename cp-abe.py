@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[38]:
+# In[83]:
 
 
 import math
@@ -9,17 +9,18 @@ import random
 import hashlib
 
 
-# In[25]:
+# In[84]:
 
 
 numAttributes = 3
 
 RHO = 8
+KEY_LEN = 8
 
 MAX_BITS = 8
 
 
-# In[26]:
+# In[85]:
 
 
 #Function to check if a number is prime
@@ -37,7 +38,7 @@ def isPrime(n):
     return True    
 
 
-# In[27]:
+# In[86]:
 
 
 #Function to generate a random prime number of rho bits
@@ -58,7 +59,7 @@ def generatePrime(len=MAX_BITS):
     return temp
 
 
-# In[28]:
+# In[87]:
 
 
 #Function to find gcd of 'a' and 'b' by Euclid's algorithm
@@ -70,7 +71,7 @@ def euclidGcd(a, b):
         return (g, x - (b // a) * y, y)
 
 
-# In[29]:
+# In[88]:
 
 
 #Function to find multiplicative inverse of 'a' modulo 'm'
@@ -82,7 +83,7 @@ def moduloInverse(a, m):
         return x % m
 
 
-# In[30]:
+# In[89]:
 
 
 #Function to check if 'k' is coprime with all elements of array 'arr' 
@@ -93,7 +94,7 @@ def checkCoprimality(k, arr):
     return True  
 
 
-# In[31]:
+# In[90]:
 
 
 #Function to calaculate 'a' power 'b' modulo 'n'
@@ -109,17 +110,36 @@ def powerModN(a, b, n):
     return temp    
 
 
-# In[ ]:
+# In[91]:
 
 
-#Function to compute one-way hash of given message 'M', with output of length 'len'
+#Function to compute one-way hash of given message 'M', with output of length 'len' bits
 def onewayhash(message, len):
-    hash_object = hashlib.sha1(b'Hello World')
-    hex_dig = hash_object.digest()
+    
+    message = str(message).encode('utf-8')
+    hash_object = hashlib.sha1(message)
+    hex_digest = hash_object.hexdigest()
+    digest = 0   
+    index = 1
+    
+    for c in reversed(hex_digest):
+        temp = int (c, 16)        
+        if len < 4:
+            temp &= ( (1<<(len)) - 1)
+            digest += temp * index
+            break
+            
+        digest += temp * index
+        index *= 16
+        len -= 4    
+    
+    return digest
 
 
-# In[32]:
+# In[92]:
 
+
+### Setup phase ###
 
 p = generatePrime(RHO)
 q = generatePrime(RHO)
@@ -132,11 +152,11 @@ N = p*q
 phiN = (p-1)*(q-1)
 
 
-# In[33]:
+# In[93]:
 
 
-pi = [None] * numAttributes
-qi = [None] * numAttributes
+pi = list()
+qi = list()
 
 for i in range(0, numAttributes):
     temp = generatePrime()
@@ -144,16 +164,16 @@ for i in range(0, numAttributes):
     while math.gcd(temp, phiN) != 1:
         temp = generatePrime()
 
-    pi[i] = temp  
-    qi[i] = moduloInverse(pi[i], phiN)
+    pi.append(temp)    
+    qi.append(moduloInverse(pi[i], phiN))
 
 
-# In[34]:
+# In[100]:
 
 
 k = random.getrandbits(MAX_BITS)
 
-while math.gcd(k, phiN) != 1 and checkCoprimality(k, qi) == False:
+while math.gcd(k, phiN) != 1 or checkCoprimality(k, qi) == False:
     k = random.getrandbits(MAX_BITS)
     
 x = random.getrandbits(MAX_BITS)
@@ -162,7 +182,7 @@ while checkCoprimality(x, qi) == False:
     x = random.getrandbits(MAX_BITS)    
 
 
-# In[35]:
+# In[101]:
 
 
 g = random.randint(3, N-2)
@@ -171,7 +191,7 @@ while math.gcd(temp, N) != 1:
     temp = random.randint(3, N-2)
 
 
-# In[36]:
+# In[102]:
 
 
 dU = 1
@@ -181,4 +201,90 @@ for i in range(len(qi)):
 DU = powerModN(g, dU, N)
 Y  = powerModN(g,  x, N)
 R  = powerModN(g,  k, N)
+
+
+# In[119]:
+
+
+### Encryption phase ###
+
+sigmaM = str(random.getrandbits(KEY_LEN))
+P = str('010')
+M = str('227')
+
+len_H1 = RHO
+len_H2 = len(sigmaM)
+len_H3 = len(M)
+
+dP = 1 #doubtful
+for i, c in enumerate(P):
+    if c == '1':
+        dP *= qi[i]
+
+rm = onewayhash(P+M+sigmaM, len_H1)
+Km = powerModN(g, rm*dP, N)
+Ym = powerModN(g, x*rm , N)
+Rm = powerModN(g, k*rm , N)
+CsigmaM = onewayhash(str(Km), len_H2) ^ int(sigmaM)
+Cm = onewayhash(sigmaM, len_H3) ^ int(M)
+Sm = onewayhash(sigmaM+M, len_H1)
+
+
+# In[120]:
+
+
+### Key Generation Phase ###
+
+#User 1 - attribute '001'
+
+A = str('011')
+dA = 1 #doubtful
+for i, c in enumerate(A):
+    if c == '1':
+        dA *= qi[i]
+        
+ru = random.getrandbits(MAX_BITS)%phiN
+tu = random.getrandbits(MAX_BITS)%phiN
+
+su = (((dA-(ru*x)%phiN+phiN)%phiN) * moduloInverse(k, phiN))%phiN 
+
+k1 = (su + (x*tu)%phiN)%phiN 
+k2 = (ru - (k*tu)%phiN + phiN)%phiN
+
+
+# In[131]:
+
+
+### Decryption phase ###
+eA = 1 #doubtful
+for i, c in enumerate(A):
+    if c == '1':
+        eA *= pi[i]
+
+eP = 1 #doubtful
+for i, c in enumerate(P):
+    if c == '1':
+        eP *= pi[i]  
+        
+if eA%eP:
+    print ('Unable to decrypt')
+else:
+    Km2 = powerModN(Ym, k2, N)
+    Km2 = (Km2 * powerModN(Rm, k1, N))%N
+    Km2 = powerModN(Km2, eA/eP, N)
+    
+    sigmaM2 = onewayhash(Km2, len_H2) ^ CsigmaM
+    M2 = Cm ^ onewayhash(sigmaM2, len_H3)
+    
+    if not onewayhash(str(sigmaM2)+str(M2), len_H1) == Sm:
+        print ('Invalid signature')
+    else:    
+        print ('Message :', M2)      
+
+
+# In[129]:
+
+
+print (sigmaM,M)
+print (sigmaM2,M2)
 
