@@ -1,7 +1,7 @@
-
+#!/usr/bin/env python
 # coding: utf-8
 
-# In[1]:
+# In[40]:
 
 
 import math
@@ -10,10 +10,15 @@ import hashlib
 import time
 
 
-# In[216]:
+# In[41]:
 
 
-numAttributes = 128
+numAttributes = 2
+
+P = ""
+
+for i in range(0, numAttributes//2):
+    P+='10'
 
 RHO = 32
 KEY_LEN = 32
@@ -21,7 +26,7 @@ KEY_LEN = 32
 MAX_BITS = 32
 
 
-# In[217]:
+# In[42]:
 
 
 #Function to check if a number is prime
@@ -36,10 +41,10 @@ def isPrime(n):
         if n%i == 0:
             return False
         
-    return True    
+    return True   
 
 
-# In[218]:
+# In[43]:
 
 
 #Function to generate a random prime number of rho bits
@@ -60,7 +65,7 @@ def generatePrime(len=MAX_BITS):
     return temp
 
 
-# In[219]:
+# In[44]:
 
 
 #Function to find gcd of 'a' and 'b' by Euclid's algorithm
@@ -72,7 +77,7 @@ def euclidGcd(a, b):
         return (g, x - (b // a) * y, y)
 
 
-# In[220]:
+# In[45]:
 
 
 #Function to find multiplicative inverse of 'a' modulo 'm'
@@ -84,7 +89,7 @@ def moduloInverse(a, m):
         return x % m
 
 
-# In[221]:
+# In[46]:
 
 
 #Function to check if 'k' is coprime with all elements of array 'arr' 
@@ -95,7 +100,7 @@ def checkCoprimality(k, arr):
     return True  
 
 
-# In[222]:
+# In[47]:
 
 
 #Function to calaculate 'a' power 'b' modulo 'n'
@@ -111,16 +116,10 @@ def powerModN(a, b, n):
             temp = (temp%n * a%n)%n
         b>>=1
         a = (a*a)%n
-    return temp    
-#     temp = powerModN(a, b//2, n)
-#     temp = (temp*temp) % n
-#     if b%2:
-#         temp = (temp*a) %n
-        
-#     return temp    
+    return temp  
 
 
-# In[223]:
+# In[48]:
 
 
 #Function to compute one-way hash of given message 'M', with output of length 'len' bits
@@ -146,7 +145,7 @@ def onewayhash(message, len):
     return digest
 
 
-# In[224]:
+# In[49]:
 
 
 ### Setup phase ###
@@ -162,7 +161,7 @@ N = p*q
 phiN = (p-1)*(q-1)
 
 
-# In[225]:
+# In[50]:
 
 
 pi = list()
@@ -178,7 +177,7 @@ for i in range(0, numAttributes):
     qi.append(moduloInverse(pi[i], phiN))
 
 
-# In[226]:
+# In[51]:
 
 
 k = random.getrandbits(MAX_BITS)
@@ -192,7 +191,7 @@ while checkCoprimality(x, qi) == False:
     x = random.getrandbits(MAX_BITS)    
 
 
-# In[227]:
+# In[52]:
 
 
 g = random.randint(3, N-2)
@@ -201,7 +200,7 @@ while math.gcd(g, N) != 1:
     g = random.randint(3, N-2)
 
 
-# In[228]:
+# In[53]:
 
 
 dU = 1
@@ -213,7 +212,7 @@ Y  = powerModN(g,  x, N)
 R  = powerModN(g,  k, N)
 
 
-# In[235]:
+# In[54]:
 
 
 ### Encryption phase ###
@@ -221,20 +220,26 @@ R  = powerModN(g,  k, N)
 start_time_encryption = time.time()
 
 sigmaM = str(random.getrandbits(KEY_LEN))
-P = str('10101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010')
+# P = str('10101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010')
 M = str('1234567890123456789012345678901234567890123456789012345678901234')
 
 len_H1 = RHO
 len_H2 = len(sigmaM)
 len_H3 = len(M)
 
-dP = 1
+
+eU = 1 
+for i in range(0, numAttributes):
+    eU *= pi[i]
+
+eP = 1 
 for i, c in enumerate(P):
     if c == '1':
-        dP *= qi[i]
+        eP *= pi[i] 
+        
 
 rm = onewayhash(P+M+sigmaM, len_H1)
-Km = powerModN(g, rm*dP, N)
+Km = powerModN(, rm*dP, N)
 Ym = powerModN(g, x*rm , N)
 Rm = powerModN(g, k*rm , N)
 CsigmaM = onewayhash(str(Km), len_H2) ^ int(sigmaM)
@@ -244,14 +249,14 @@ Sm = onewayhash(sigmaM+M, len_H1)
 print('Encryption Time = {0}'.format(time.time() - start_time_encryption))
 
 
-# In[236]:
+# In[55]:
 
 
 ### Key Generation Phase ###
 
 #User 1 - attribute '10'
 
-A = str('10101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010')
+A = P#str('10101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010')
 dA = 1
 for i, c in enumerate(A):
     if c == '1':
@@ -283,7 +288,7 @@ k12 = (su2 + (x*tu2)%phiN)%phiN
 k22 = (ru2 - (k*tu2)%phiN + phiN)%phiN
 
 
-# In[248]:
+# In[56]:
 
 
 ### Decryption phase ###
@@ -319,7 +324,7 @@ else:
 print('Decryption Time = {0}'.format(time.time() - start_time_decryption))
 
 
-# In[191]:
+# In[18]:
 
 
 ### Decryption phase ###
@@ -349,16 +354,10 @@ else:
         print ('Message :', M2)  
 
 
-# In[85]:
+# In[20]:
 
 
-print (k1, k2, k12, k22)
-print ()
-
-
-# In[98]:
-
-
+# Attack
 T1 = powerModN(Ym, k2, N)
 T1 = (T1 * powerModN(Rm, k1, N))%N
 T2 = powerModN(Ym, k22, N)
@@ -376,18 +375,4 @@ while a2<0:
     
 K = powerModN(T2, a1, N)
 K = (K * powerModN(T1, a2, N))%N
-
-print (K, Km)
-
-
-# In[95]:
-
-
-print (T1, T2, powerModN(T1, pi[0], N), powerModN(T2, pi[1], N), powerModN(g, rm, N), powerModN(g, rm*qi[0], N))
-
-
-# In[97]:
-
-
-print (a1*pi[0] + a2*pi[1], a1, a2)
 
